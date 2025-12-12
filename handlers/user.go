@@ -61,8 +61,9 @@ func getFormValue(r *http.Request, keys ...string) string {
 	return ""
 }
 
-func (h *UserHandler) PersonalDetails(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+// GetUserData retrieves all user registration data
+func (h *UserHandler) GetUserData(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
 		utils.SendErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -73,270 +74,71 @@ func (h *UserHandler) PersonalDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req PersonalDetailsRequest
-
-	// Parse form-data or JSON
-	contentType := r.Header.Get("Content-Type")
-	if strings.HasPrefix(contentType, "multipart/form-data") || strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
-		if strings.HasPrefix(contentType, "multipart/form-data") {
-			if err := r.ParseMultipartForm(32 << 20); err != nil {
-				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
-				return
-			}
-			req.FullName = r.FormValue("full_name")
-			req.Email = r.FormValue("email")
-			req.PhoneNumber = r.FormValue("phone_number")
-		} else {
-			if err := r.ParseForm(); err != nil {
-				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
-				return
-			}
-			req.FullName = r.FormValue("full_name")
-			req.Email = r.FormValue("email")
-			req.PhoneNumber = r.FormValue("phone_number")
-		}
-	} else {
-		// JSON fallback
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
+	// Get user
+	user, err := models.GetUserByID(h.DB, userID)
+	if err != nil {
+		utils.SendErrorResponse(w, "Database error", http.StatusInternalServerError)
+		return
 	}
-
-	// Validate inputs
-	if req.FullName == "" {
-		utils.SendErrorResponse(w, "Full name is required", http.StatusBadRequest)
+	if user == nil {
+		utils.SendErrorResponse(w, "User not found", http.StatusNotFound)
 		return
 	}
 
-	if req.Email == "" {
-		utils.SendErrorResponse(w, "Email is required", http.StatusBadRequest)
-		return
-	}
-
-	if !utils.ValidateEmail(req.Email) {
-		utils.SendErrorResponse(w, "Invalid email format", http.StatusBadRequest)
-		return
-	}
-
-	if req.PhoneNumber == "" {
-		utils.SendErrorResponse(w, "Phone number is required", http.StatusBadRequest)
-		return
-	}
-
-	if !utils.ValidatePhone(req.PhoneNumber) {
-		utils.SendErrorResponse(w, "Invalid phone number format", http.StatusBadRequest)
-		return
-	}
-
-	// Create or update personal details
-	personalDetails := &models.PersonalDetails{
-		UserID:      userID,
-		FullName:    req.FullName,
-		Email:       req.Email,
-		PhoneNumber: req.PhoneNumber,
-	}
-
-	if err := personalDetails.CreateOrUpdate(h.DB); err != nil {
-		utils.SendErrorResponse(w, "Failed to save personal details", http.StatusInternalServerError)
-		return
-	}
-
-	utils.SendSuccessResponse(w, "Personal details saved successfully", personalDetails, http.StatusOK)
-}
-
-func (h *UserHandler) BusinessDetails(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.SendErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	userID, err := h.getUserIDFromRequest(r)
-	if err != nil || userID == uuid.Nil {
-		utils.SendErrorResponse(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	var req BusinessDetailsRequest
-
-	// Parse form-data or JSON
-	contentType := r.Header.Get("Content-Type")
-	if strings.HasPrefix(contentType, "multipart/form-data") || strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
-		if strings.HasPrefix(contentType, "multipart/form-data") {
-			if err := r.ParseMultipartForm(32 << 20); err != nil {
-				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
-				return
-			}
-			req.BusinessName = r.FormValue("business_name")
-			req.TradeLicenseNumber = r.FormValue("trade_license_number")
-		} else {
-			if err := r.ParseForm(); err != nil {
-				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
-				return
-			}
-			req.BusinessName = r.FormValue("business_name")
-			req.TradeLicenseNumber = r.FormValue("trade_license_number")
-		}
-	} else {
-		// JSON fallback
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-	}
-
-	// Validate inputs
-	if req.BusinessName == "" {
-		utils.SendErrorResponse(w, "Business name is required", http.StatusBadRequest)
-		return
-	}
-
-	if req.TradeLicenseNumber == "" {
-		utils.SendErrorResponse(w, "Trade license number is required", http.StatusBadRequest)
-		return
-	}
-
-	// Create or update business details
-	businessDetails := &models.BusinessDetails{
-		UserID:             userID,
-		BusinessName:       req.BusinessName,
-		TradeLicenseNumber: req.TradeLicenseNumber,
-	}
-
-	if err := businessDetails.CreateOrUpdate(h.DB); err != nil {
-		utils.SendErrorResponse(w, "Failed to save business details", http.StatusInternalServerError)
-		return
-	}
-
-	utils.SendSuccessResponse(w, "Business details saved successfully", businessDetails, http.StatusOK)
-}
-
-func (h *UserHandler) TradeLicense(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.SendErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	userID, err := h.getUserIDFromRequest(r)
-	if err != nil || userID == uuid.Nil {
-		utils.SendErrorResponse(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	var req TradeLicenseRequest
-
-	// Parse form-data or JSON
-	contentType := r.Header.Get("Content-Type")
-	if strings.HasPrefix(contentType, "multipart/form-data") || strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
-		if strings.HasPrefix(contentType, "multipart/form-data") {
-			if err := r.ParseMultipartForm(32 << 20); err != nil {
-				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
-				return
-			}
-
-			// Check if file was uploaded
-			file, fileHeader, err := r.FormFile("file")
-			if err == nil && file != nil {
-				defer file.Close()
-				req.Filename = fileHeader.Filename
-
-				// Upload to Supabase storage
-				bucketName := os.Getenv("SUPABASE_BUCKET_NAME")
-				if bucketName == "" {
-					bucketName = "vercel_bucket" // Default bucket name
-				}
-
-				fileURL, uploadErr := storage.UploadFileToSupabase(file, fileHeader.Filename, bucketName)
-				if uploadErr != nil {
-					log.Printf("Failed to upload file to Supabase: %v", uploadErr)
-					utils.SendErrorResponse(w, fmt.Sprintf("Failed to upload file: %v", uploadErr), http.StatusInternalServerError)
-					return
-				}
-				req.FileURL = fileURL
-			} else {
-				// Fallback to form values
-				req.Filename = r.FormValue("filename")
-				req.FileURL = r.FormValue("file_url")
-			}
-		} else {
-			if err := r.ParseForm(); err != nil {
-				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
-				return
-			}
-			req.Filename = r.FormValue("filename")
-			req.FileURL = r.FormValue("file_url")
-		}
-	} else {
-		// JSON fallback
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-	}
-
-	// Validate inputs
-	if req.Filename == "" {
-		utils.SendErrorResponse(w, "Filename is required", http.StatusBadRequest)
-		return
-	}
-
-	// FileURL is required only if no file was uploaded
-	if req.FileURL == "" {
-		utils.SendErrorResponse(w, "File URL is required (or upload a file)", http.StatusBadRequest)
-		return
-	}
-
-	// Create or update trade license
-	tradeLicense := &models.TradeLicense{
-		UserID:   userID,
-		Filename: req.Filename,
-		FileURL:  req.FileURL,
-	}
-
-	if err := tradeLicense.CreateOrUpdate(h.DB); err != nil {
-		utils.SendErrorResponse(w, "Failed to save trade license", http.StatusInternalServerError)
-		return
-	}
-
-	utils.SendSuccessResponse(w, "Trade license saved successfully", tradeLicense, http.StatusOK)
-}
-
-func (h *UserHandler) Submit(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.SendErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	userID, err := h.getUserIDFromRequest(r)
-	if err != nil || userID == uuid.Nil {
-		utils.SendErrorResponse(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	// Get registration summary
-	summary, err := models.GetRegistrationSummary(h.DB, userID)
+	// Get personal details
+	personalDetails, err := models.GetPersonalDetails(h.DB, userID)
 	if err != nil {
 		utils.SendErrorResponse(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 
-	if summary == nil {
-		utils.SendErrorResponse(w, "Registration incomplete. Please complete all steps.", http.StatusBadRequest)
+	// Get business details
+	businessDetails, err := models.GetBusinessDetails(h.DB, userID)
+	if err != nil {
+		utils.SendErrorResponse(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 
-	// Update account status to "old" (complete)
+	// Get trade license
+	tradeLicense, err := models.GetTradeLicense(h.DB, userID)
+	if err != nil {
+		utils.SendErrorResponse(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Get account status
 	accountStatus, err := models.GetAccountStatus(h.DB, userID)
 	if err != nil {
-		utils.SendErrorResponse(w, "Failed to get account status", http.StatusInternalServerError)
+		utils.SendErrorResponse(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 
-	utils.SendSuccessResponse(w, "Registration submitted successfully", map[string]interface{}{
-		"summary": summary,
+	// Build response
+	response := map[string]interface{}{
+		"user_id": userID.String(),
+		"email":   user.Email,
 		"status":  accountStatus.Status,
-		"message": "Your details are submitted.",
-	}, http.StatusOK)
+	}
+
+	if personalDetails != nil {
+		response["personal"] = personalDetails
+	} else {
+		response["personal"] = nil
+	}
+
+	if businessDetails != nil {
+		response["business"] = businessDetails
+	} else {
+		response["business"] = nil
+	}
+
+	if tradeLicense != nil {
+		response["trade_license"] = tradeLicense
+	} else {
+		response["trade_license"] = nil
+	}
+
+	utils.SendSuccessResponse(w, "User data retrieved successfully", response, http.StatusOK)
 }
 
 func (h *UserHandler) Status(w http.ResponseWriter, r *http.Request) {

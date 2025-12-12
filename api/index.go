@@ -128,27 +128,6 @@ func getRouter() *mux.Router {
 		// Protected routes
 		protected := api.PathPrefix("").Subrouter()
 		protected.Use(middleware.JWTAuthMiddleware)
-		protected.HandleFunc("/user/personal-details", func(w http.ResponseWriter, r *http.Request) {
-			d := dbOrError(w)
-			if d == nil {
-				return
-			}
-			(&handlers.UserHandler{DB: d}).PersonalDetails(w, r)
-		}).Methods("POST")
-		protected.HandleFunc("/user/business-details", func(w http.ResponseWriter, r *http.Request) {
-			d := dbOrError(w)
-			if d == nil {
-				return
-			}
-			(&handlers.UserHandler{DB: d}).BusinessDetails(w, r)
-		}).Methods("POST")
-		protected.HandleFunc("/user/trade-license", func(w http.ResponseWriter, r *http.Request) {
-			d := dbOrError(w)
-			if d == nil {
-				return
-			}
-			(&handlers.UserHandler{DB: d}).TradeLicense(w, r)
-		}).Methods("POST")
 		protected.HandleFunc("/user/full-registration", func(w http.ResponseWriter, r *http.Request) {
 			d := dbOrError(w)
 			if d == nil {
@@ -156,19 +135,19 @@ func getRouter() *mux.Router {
 			}
 			(&handlers.UserHandler{DB: d}).FullRegistration(w, r)
 		}).Methods("POST")
-		protected.HandleFunc("/user/submit", func(w http.ResponseWriter, r *http.Request) {
-			d := dbOrError(w)
-			if d == nil {
-				return
-			}
-			(&handlers.UserHandler{DB: d}).Submit(w, r)
-		}).Methods("POST")
 		protected.HandleFunc("/user/status", func(w http.ResponseWriter, r *http.Request) {
 			d := dbOrError(w)
 			if d == nil {
 				return
 			}
 			(&handlers.UserHandler{DB: d}).Status(w, r)
+		}).Methods("GET")
+		protected.HandleFunc("/user/data", func(w http.ResponseWriter, r *http.Request) {
+			d := dbOrError(w)
+			if d == nil {
+				return
+			}
+			(&handlers.UserHandler{DB: d}).GetUserData(w, r)
 		}).Methods("GET")
 
 		// CORS middleware

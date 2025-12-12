@@ -108,114 +108,24 @@
 					}
 				},
 				{
-					"name": "Save Personal Details",
+					"name": "Get User Data",
 					"request": {
-						"method": "POST",
+						"method": "GET",
 						"header": [
 							{
 								"key": "Authorization",
 								"value": "Bearer {{auth_token}}"
 							}
 						],
-						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "full_name",
-									"value": "John Smith",
-									"type": "text"
-								},
-								{
-									"key": "email",
-									"value": "test@example.com",
-									"type": "text"
-								},
-								{
-									"key": "phone_number",
-									"value": "(100) 123456789",
-									"type": "text"
-								}
-							]
-						},
 						"url": {
-							"raw": "{{base_url}}/api/user/personal-details",
+							"raw": "{{base_url}}/api/user/data",
 							"host": ["{{base_url}}"],
-							"path": ["api", "user", "personal-details"]
+							"path": ["api", "user", "data"]
 						}
 					}
 				},
 				{
-					"name": "Save Business Details",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{auth_token}}"
-							}
-						],
-						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "business_name",
-									"value": "ABC Trading Company",
-									"type": "text"
-								},
-								{
-									"key": "trade_license_number",
-									"value": "TL123456789",
-									"type": "text"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{base_url}}/api/user/business-details",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "business-details"]
-						}
-					}
-				},
-				{
-					"name": "Upload Trade License",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{auth_token}}"
-							}
-						],
-						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "filename",
-									"value": "license.pdf",
-									"type": "text"
-								},
-								{
-									"key": "file_url",
-									"value": "https://example.com/storage/license.pdf",
-									"type": "text"
-								},
-								{
-									"key": "file",
-									"type": "file",
-									"src": [],
-									"description": "Optional: Upload file directly (alternative to file_url)"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{base_url}}/api/user/trade-license",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "trade-license"]
-						}
-					}
-				},
-				{
-					"name": "Save Full Registration (Personal + Business + Trade)",
+					"name": "Save Full Registration",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -274,23 +184,6 @@
 							"raw": "{{base_url}}/api/user/full-registration",
 							"host": ["{{base_url}}"],
 							"path": ["api", "user", "full-registration"]
-						}
-					}
-				},
-				{
-					"name": "Submit Registration",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{auth_token}}"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/user/submit",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "submit"]
 						}
 					}
 				}

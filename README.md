@@ -146,46 +146,70 @@ Authorization: Bearer <jwt_token>
 ```
 GET /api/user/status
 Authorization: Bearer <token>
+
+Response:
+{
+    "success": true,
+    "message": "Account status retrieved successfully",
+    "status_code": 200,
+    "data": {
+        "user_id": "uuid",
+        "email": "user@example.com",
+        "status": "new",
+        "has_personal_details": true,
+        "has_business_details": true,
+        "has_trade_license": false,
+        "is_complete": false
+    }
+}
 ```
 
-#### Save Personal Details
+#### Get User Data
 ```
-POST /api/user/personal-details
+GET /api/user/data
 Authorization: Bearer <token>
-Content-Type: multipart/form-data
 
-Form Data:
-- full_name: Muntasir Efaz
-- email: efaz@example.com
-- phone_number: (+880) 123456789
+Response:
+{
+    "success": true,
+    "message": "User data retrieved successfully",
+    "status_code": 200,
+    "data": {
+        "user_id": "uuid",
+        "email": "user@example.com",
+        "status": "old",
+        "personal": {
+            "id": "uuid",
+            "user_id": "uuid",
+            "full_name": "John Smith",
+            "email": "john@example.com",
+            "phone_number": "(100) 123456789",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        },
+        "business": {
+            "id": "uuid",
+            "user_id": "uuid",
+            "business_name": "ABC Company",
+            "trade_license_number": "TL123456789",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        },
+        "trade_license": {
+            "id": "uuid",
+            "user_id": "uuid",
+            "filename": "license.pdf",
+            "file_url": "https://supabase.co/storage/...",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        }
+    }
+}
 ```
 
-#### Save Business Details
-```
-POST /api/user/business-details
-Authorization: Bearer <token>
-Content-Type: multipart/form-data
+**Note:** Returns `null` for `personal`, `business`, or `trade_license` if not yet saved.
 
-Form Data:
-- business_name: ABC Trading Company
-- trade_license_number: TL123456789
-```
-
-#### Upload Trade License
-```
-POST /api/user/trade-license
-Authorization: Bearer <token>
-Content-Type: multipart/form-data
-
-Form Data:
-- filename: license.pdf (text field)
-- file_url: https://example.com/storage/license.pdf (text field)
-- file: [file upload] (optional - alternative to file_url)
-```
-
-**Note:** You can either provide `filename` and `file_url`, or upload a file directly using the `file` field.
-
-#### Save Full Registration (single call)
+#### Save Full Registration
 ```
 POST /api/user/full-registration
 Authorization: Bearer <token>
@@ -211,13 +235,7 @@ Alternative flat format (also supported):
 - file_url: https://example.com/storage/license.pdf
 ```
 
-**Note:** This endpoint saves personal details, business details, and trade license in a single API call.
-
-#### Submit Registration
-```
-POST /api/user/submit
-Authorization: Bearer <token>
-```
+**Note:** This endpoint saves personal details, business details, and trade license in a single API call. If a file is uploaded via `trade[file]`, it will be automatically uploaded to Supabase storage.
 
 ## Response Format
 
@@ -245,8 +263,18 @@ All API responses follow this format:
 ## Account Status
 
 The account status is determined as follows:
-- **"new"**: Account exists but registration is incomplete
+- **"new"**: Account exists but registration is incomplete (missing personal details, business details, or trade license)
 - **"old"**: All three steps are completed (personal details, business details, and trade license)
+
+## API Summary
+
+The API provides three main endpoints for user management:
+
+1. **GET /api/user/status** - Get account completion status
+2. **GET /api/user/data** - Get all user registration data (personal, business, trade license)
+3. **POST /api/user/full-registration** - Save all registration data in one call
+
+All user data is saved through the single `full-registration` endpoint, which handles personal details, business details, and trade license upload in one request.
 
 ## Postman Collection
 
@@ -266,7 +294,7 @@ All POST endpoints accept data in `multipart/form-data` format. JSON format (`ap
 The API supports multiple naming conventions:
 - **Nested format**: `personal[full_name]`, `business[business_name]`
 - **Flat format**: `personal_full_name`, `business_business_name`
-- **Simple format**: `full_name`, `email` (for single-step endpoints)
+- **Simple format**: `full_name`, `email` (for full-registration endpoint)
 
 ## Deployment to Vercel
 

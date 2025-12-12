@@ -63,23 +63,14 @@ func getRouter() *mux.Router {
 		// Protected routes
 		protected := api.PathPrefix("").Subrouter()
 		protected.Use(middleware.JWTAuthMiddleware)
-		protected.HandleFunc("/user/personal-details", func(w http.ResponseWriter, r *http.Request) {
-			(&handlers.UserHandler{DB: getDB()}).PersonalDetails(w, r)
-		}).Methods("POST")
-		protected.HandleFunc("/user/business-details", func(w http.ResponseWriter, r *http.Request) {
-			(&handlers.UserHandler{DB: getDB()}).BusinessDetails(w, r)
-		}).Methods("POST")
-		protected.HandleFunc("/user/trade-license", func(w http.ResponseWriter, r *http.Request) {
-			(&handlers.UserHandler{DB: getDB()}).TradeLicense(w, r)
-		}).Methods("POST")
 		protected.HandleFunc("/user/full-registration", func(w http.ResponseWriter, r *http.Request) {
 			(&handlers.UserHandler{DB: getDB()}).FullRegistration(w, r)
 		}).Methods("POST")
-		protected.HandleFunc("/user/submit", func(w http.ResponseWriter, r *http.Request) {
-			(&handlers.UserHandler{DB: getDB()}).Submit(w, r)
-		}).Methods("POST")
 		protected.HandleFunc("/user/status", func(w http.ResponseWriter, r *http.Request) {
 			(&handlers.UserHandler{DB: getDB()}).Status(w, r)
+		}).Methods("GET")
+		protected.HandleFunc("/user/data", func(w http.ResponseWriter, r *http.Request) {
+			(&handlers.UserHandler{DB: getDB()}).GetUserData(w, r)
 		}).Methods("GET")
 
 		// CORS middleware
