@@ -3,9 +3,14 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
+	"os"
+	"strings"
 
 	"sme_fin_backend/models"
+	"sme_fin_backend/storage"
 	"sme_fin_backend/utils"
 
 	"github.com/google/uuid"
@@ -46,6 +51,16 @@ func (h *UserHandler) getUserIDFromRequest(r *http.Request) (uuid.UUID, error) {
 	return uuid.Parse(userIDStr)
 }
 
+// getFormValue tries multiple form field names and returns the first non-empty value
+func getFormValue(r *http.Request, keys ...string) string {
+	for _, key := range keys {
+		if value := r.FormValue(key); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func (h *UserHandler) PersonalDetails(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -59,9 +74,33 @@ func (h *UserHandler) PersonalDetails(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req PersonalDetailsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
-		return
+
+	// Parse form-data or JSON
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") || strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		if strings.HasPrefix(contentType, "multipart/form-data") {
+			if err := r.ParseMultipartForm(32 << 20); err != nil {
+				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
+				return
+			}
+			req.FullName = r.FormValue("full_name")
+			req.Email = r.FormValue("email")
+			req.PhoneNumber = r.FormValue("phone_number")
+		} else {
+			if err := r.ParseForm(); err != nil {
+				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
+				return
+			}
+			req.FullName = r.FormValue("full_name")
+			req.Email = r.FormValue("email")
+			req.PhoneNumber = r.FormValue("phone_number")
+		}
+	} else {
+		// JSON fallback
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Validate inputs
@@ -119,9 +158,31 @@ func (h *UserHandler) BusinessDetails(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req BusinessDetailsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
-		return
+
+	// Parse form-data or JSON
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") || strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		if strings.HasPrefix(contentType, "multipart/form-data") {
+			if err := r.ParseMultipartForm(32 << 20); err != nil {
+				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
+				return
+			}
+			req.BusinessName = r.FormValue("business_name")
+			req.TradeLicenseNumber = r.FormValue("trade_license_number")
+		} else {
+			if err := r.ParseForm(); err != nil {
+				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
+				return
+			}
+			req.BusinessName = r.FormValue("business_name")
+			req.TradeLicenseNumber = r.FormValue("trade_license_number")
+		}
+	} else {
+		// JSON fallback
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Validate inputs
@@ -163,9 +224,54 @@ func (h *UserHandler) TradeLicense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req TradeLicenseRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
-		return
+
+	// Parse form-data or JSON
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") || strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		if strings.HasPrefix(contentType, "multipart/form-data") {
+			if err := r.ParseMultipartForm(32 << 20); err != nil {
+				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
+				return
+			}
+
+			// Check if file was uploaded
+			file, fileHeader, err := r.FormFile("file")
+			if err == nil && file != nil {
+				defer file.Close()
+				req.Filename = fileHeader.Filename
+
+				// Upload to Supabase storage
+				bucketName := os.Getenv("SUPABASE_BUCKET_NAME")
+				if bucketName == "" {
+					bucketName = "vercel_bucket" // Default bucket name
+				}
+
+				fileURL, uploadErr := storage.UploadFileToSupabase(file, fileHeader.Filename, bucketName)
+				if uploadErr != nil {
+					log.Printf("Failed to upload file to Supabase: %v", uploadErr)
+					utils.SendErrorResponse(w, fmt.Sprintf("Failed to upload file: %v", uploadErr), http.StatusInternalServerError)
+					return
+				}
+				req.FileURL = fileURL
+			} else {
+				// Fallback to form values
+				req.Filename = r.FormValue("filename")
+				req.FileURL = r.FormValue("file_url")
+			}
+		} else {
+			if err := r.ParseForm(); err != nil {
+				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
+				return
+			}
+			req.Filename = r.FormValue("filename")
+			req.FileURL = r.FormValue("file_url")
+		}
+	} else {
+		// JSON fallback
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Validate inputs
@@ -174,8 +280,9 @@ func (h *UserHandler) TradeLicense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// FileURL is required only if no file was uploaded
 	if req.FileURL == "" {
-		utils.SendErrorResponse(w, "File URL is required", http.StatusBadRequest)
+		utils.SendErrorResponse(w, "File URL is required (or upload a file)", http.StatusBadRequest)
 		return
 	}
 
@@ -272,9 +379,65 @@ func (h *UserHandler) FullRegistration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req FullRegistrationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
-		return
+
+	// Parse form-data or JSON
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") || strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		if strings.HasPrefix(contentType, "multipart/form-data") {
+			if err := r.ParseMultipartForm(32 << 20); err != nil {
+				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
+				return
+			}
+		} else {
+			if err := r.ParseForm(); err != nil {
+				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
+				return
+			}
+		}
+
+		// Parse form fields - support both nested (personal[full_name]) and flat (personal_full_name) formats
+		req.Personal.FullName = getFormValue(r, "personal[full_name]", "personal_full_name", "full_name")
+		req.Personal.Email = getFormValue(r, "personal[email]", "personal_email", "email")
+		req.Personal.PhoneNumber = getFormValue(r, "personal[phone_number]", "personal_phone_number", "phone_number")
+
+		req.Business.BusinessName = getFormValue(r, "business[business_name]", "business_business_name", "business_name")
+		req.Business.TradeLicenseNumber = getFormValue(r, "business[trade_license_number]", "business_trade_license_number", "trade_license_number")
+
+		// Handle file upload for trade license if present
+		if strings.HasPrefix(contentType, "multipart/form-data") {
+			file, fileHeader, err := r.FormFile("trade[file]")
+			if err == nil && file != nil {
+				defer file.Close()
+				req.Trade.Filename = fileHeader.Filename
+
+				// Upload to Supabase storage
+				bucketName := os.Getenv("SUPABASE_BUCKET_NAME")
+				if bucketName == "" {
+					bucketName = "vercel_bucket" // Default bucket name
+				}
+
+				fileURL, uploadErr := storage.UploadFileToSupabase(file, fileHeader.Filename, bucketName)
+				if uploadErr != nil {
+					log.Printf("Failed to upload file to Supabase: %v", uploadErr)
+					utils.SendErrorResponse(w, fmt.Sprintf("Failed to upload file: %v", uploadErr), http.StatusInternalServerError)
+					return
+				}
+				req.Trade.FileURL = fileURL
+			} else {
+				// Fallback to form values
+				req.Trade.Filename = getFormValue(r, "trade[filename]", "trade_filename", "filename")
+				req.Trade.FileURL = getFormValue(r, "trade[file_url]", "trade_file_url", "file_url")
+			}
+		} else {
+			req.Trade.Filename = getFormValue(r, "trade[filename]", "trade_filename", "filename")
+			req.Trade.FileURL = getFormValue(r, "trade[file_url]", "trade_file_url", "file_url")
+		}
+	} else {
+		// JSON fallback
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Validate personal details
@@ -315,7 +478,7 @@ func (h *UserHandler) FullRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Trade.FileURL == "" {
-		utils.SendErrorResponse(w, "File URL is required", http.StatusBadRequest)
+		utils.SendErrorResponse(w, "File URL is required (or upload a file)", http.StatusBadRequest)
 		return
 	}
 

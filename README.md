@@ -12,6 +12,8 @@ A Go backend API for the SMEfin application that allows SMEs to register with th
 - **Account Status**: Track new/old account status based on completion
 - **Database**: PostgreSQL (Supabase) integration
 - **Error Handling**: Comprehensive error responses with status codes
+- **Form Data Support**: All endpoints accept `multipart/form-data` (with JSON fallback for backward compatibility)
+- **File Upload**: Support for direct file uploads in trade license endpoints
 
 ## Prerequisites
 
@@ -40,6 +42,12 @@ PORT=8080
 
 # Default OTP (for development/testing)
 DEFAULT_OTP=123456
+
+# Supabase Storage Configuration (for file uploads)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+# Alternative: SUPABASE_ANON_KEY=your-anon-key (if bucket is public)
+SUPABASE_BUCKET_NAME=vercel_bucket
 ```
 
 ## Database Setup
@@ -49,6 +57,13 @@ DEFAULT_OTP=123456
 1. Create a new Supabase project
 2. Run the SQL migration file located at `supabase/migrations/001_initial_schema.sql` in your Supabase SQL editor
 3. Update your `.env` file with the Supabase connection details
+
+**Note:** The database connection supports multiple environment variable formats:
+- `DATABASE_URL` (preferred for Supabase/Vercel)
+- Individual variables: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+- Alternative naming: `POSTGRES_URL`, `POSTGRES_HOST`, etc.
+
+The connection code automatically detects and uses the available format.
 
 ## Installation
 
@@ -89,22 +104,22 @@ GET /health
 #### Send OTP
 ```
 POST /api/auth/send-otp
-Content-Type: application/json
+Content-Type: multipart/form-data
 
-{
-    "email": "user@example.com"
-}
+Form Data:
+- email: user@example.com
 ```
+
+**Note:** All endpoints support both `multipart/form-data` and `application/json` formats. JSON format is also accepted for backward compatibility.
 
 #### Verify OTP
 ```
 POST /api/auth/verify-otp
-Content-Type: application/json
+Content-Type: multipart/form-data
 
-{
-    "email": "user@example.com",
-    "otp": "123456"
-}
+Form Data:
+- email: user@example.com
+- otp: 123456
 
 Response:
 {
@@ -137,61 +152,66 @@ Authorization: Bearer <token>
 ```
 POST /api/user/personal-details
 Authorization: Bearer <token>
-Content-Type: application/json
+Content-Type: multipart/form-data
 
-{
-    "full_name": "Muntasir Efaz",
-    "email": "efaz@example.com",
-    "phone_number": "(+880) 123456789"
-}
+Form Data:
+- full_name: Muntasir Efaz
+- email: efaz@example.com
+- phone_number: (+880) 123456789
 ```
 
 #### Save Business Details
 ```
 POST /api/user/business-details
 Authorization: Bearer <token>
-Content-Type: application/json
+Content-Type: multipart/form-data
 
-{
-    "business_name": "ABC Trading Company",
-    "trade_license_number": "TL123456789"
-}
+Form Data:
+- business_name: ABC Trading Company
+- trade_license_number: TL123456789
 ```
 
 #### Upload Trade License
 ```
 POST /api/user/trade-license
 Authorization: Bearer <token>
-Content-Type: application/json
+Content-Type: multipart/form-data
 
-{
-    "filename": "license.pdf",
-    "file_url": "https://example.com/storage/license.pdf"
-}
+Form Data:
+- filename: license.pdf (text field)
+- file_url: https://example.com/storage/license.pdf (text field)
+- file: [file upload] (optional - alternative to file_url)
 ```
+
+**Note:** You can either provide `filename` and `file_url`, or upload a file directly using the `file` field.
 
 #### Save Full Registration (single call)
 ```
 POST /api/user/full-registration
 Authorization: Bearer <token>
-Content-Type: application/json
+Content-Type: multipart/form-data
 
-{
-    "personal": {
-        "full_name": "Muntasir Efaz",
-        "email": "efaz@example.com",
-        "phone_number": "(+880) 123456789"
-    },
-    "business": {
-        "business_name": "ABC Company",
-        "trade_license_number": "TL123456789"
-    },
-    "trade": {
-        "filename": "license.pdf",
-        "file_url": "https://example.com/storage/license.pdf"
-    }
-}
+Form Data (nested format):
+- personal[full_name]: Muntasir Efaz
+- personal[email]: efaz@example.com
+- personal[phone_number]: (+880) 123456789
+- business[business_name]: ABC Company
+- business[trade_license_number]: TL123456789
+- trade[filename]: license.pdf
+- trade[file_url]: https://example.com/storage/license.pdf
+- trade[file]: [file upload] (optional - alternative to trade[file_url])
+
+Alternative flat format (also supported):
+- full_name: Muntasir Efaz
+- email: efaz@example.com
+- phone_number: (+880) 123456789
+- business_name: ABC Company
+- trade_license_number: TL123456789
+- filename: license.pdf
+- file_url: https://example.com/storage/license.pdf
 ```
+
+**Note:** This endpoint saves personal details, business details, and trade license in a single API call.
 
 #### Submit Registration
 ```
@@ -230,12 +250,23 @@ The account status is determined as follows:
 
 ## Postman Collection
 
-Import the `postman_collection.json` file into Postman to test all endpoints. Make sure to set the `base_url` variable to your server URL.
+Import the `postman_collection.json` file into Postman to test all endpoints. The collection is configured to use form-data format. Make sure to set the `base_url` variable to your server URL (default: `https://sm-efin-backend.vercel.app`).
+
+**Note:** The Postman collection uses `multipart/form-data` format. All requests are pre-configured with the correct form fields.
 
 ## Testing
 
 ### Default OTP
 For development and testing, the default OTP is `123456`. This can be configured via the `DEFAULT_OTP` environment variable.
+
+### Request Format
+All POST endpoints accept data in `multipart/form-data` format. JSON format (`application/json`) is also supported for backward compatibility. The API automatically detects the content type and parses accordingly.
+
+### Form Field Naming
+The API supports multiple naming conventions:
+- **Nested format**: `personal[full_name]`, `business[business_name]`
+- **Flat format**: `personal_full_name`, `business_business_name`
+- **Simple format**: `full_name`, `email` (for single-step endpoints)
 
 ## Deployment to Vercel
 
@@ -248,30 +279,38 @@ Since Vercel primarily supports serverless functions, you'll need to:
 
 ### Vercel Configuration
 
-Create a `vercel.json` file:
+The `vercel.json` file is already configured:
 
 ```json
 {
   "version": 2,
   "builds": [
     {
-      "src": "main.go",
+      "src": "api/index.go",
       "use": "@vercel/go"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/main.go"
+      "dest": "/api/index.go"
     }
   ]
 }
 ```
 
+**Important:** Make sure to set all required environment variables in your Vercel project settings:
+- Database connection variables (`DATABASE_URL` or individual `DB_*` variables)
+- `JWT_SECRET`
+- `JWT_EXPIRY_HOURS` (optional, defaults to 24)
+- `DEFAULT_OTP` (optional, defaults to 123456)
+
 ## Project Structure
 
 ```
 sme_fin_backend/
+├── api/
+│   └── index.go           # Vercel serverless function entry point
 ├── database/
 │   └── db.go              # Database connection
 ├── handlers/
@@ -284,12 +323,14 @@ sme_fin_backend/
 ├── utils/
 │   ├── jwt.go             # JWT utilities
 │   ├── response.go        # Response helpers
-│   └── validator.go       # Validation utilities
+│   ├── validator.go       # Validation utilities
+│   └── formdata.go        # Form data parsing utilities
 ├── supabase/
 │   └── migrations/
 │       └── 001_initial_schema.sql
-├── main.go                # Application entry point
+├── main.go                # Local development entry point
 ├── go.mod                 # Go dependencies
+├── vercel.json            # Vercel deployment configuration
 ├── postman_collection.json # Postman API collection
 └── README.md              # This file
 ```

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"strings"
 
 	"sme_fin_backend/models"
 	"sme_fin_backend/utils"
@@ -37,9 +38,29 @@ func (h *AuthHandler) SendOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req SendOTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
-		return
+
+	// Parse form-data or JSON
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") || strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		if strings.HasPrefix(contentType, "multipart/form-data") {
+			if err := r.ParseMultipartForm(32 << 20); err != nil {
+				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
+				return
+			}
+			req.Email = r.FormValue("email")
+		} else {
+			if err := r.ParseForm(); err != nil {
+				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
+				return
+			}
+			req.Email = r.FormValue("email")
+		}
+	} else {
+		// JSON fallback
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Validate email
@@ -101,9 +122,31 @@ func (h *AuthHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req VerifyOTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
-		return
+
+	// Parse form-data or JSON
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") || strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		if strings.HasPrefix(contentType, "multipart/form-data") {
+			if err := r.ParseMultipartForm(32 << 20); err != nil {
+				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
+				return
+			}
+			req.Email = r.FormValue("email")
+			req.OTP = r.FormValue("otp")
+		} else {
+			if err := r.ParseForm(); err != nil {
+				utils.SendErrorResponse(w, "Invalid form data", http.StatusBadRequest)
+				return
+			}
+			req.Email = r.FormValue("email")
+			req.OTP = r.FormValue("otp")
+		}
+	} else {
+		// JSON fallback
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			utils.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Validate inputs
