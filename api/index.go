@@ -9,6 +9,7 @@ import (
 	"sme_fin_backend/database"
 	"sme_fin_backend/handlers"
 	"sme_fin_backend/middleware"
+	"sme_fin_backend/utils"
 
 	"github.com/gorilla/mux"
 )
@@ -19,6 +20,14 @@ var (
 	dbOnce     sync.Once
 	routerOnce sync.Once
 )
+
+func dbOrError(w http.ResponseWriter) *sql.DB {
+	d := getDB()
+	if d == nil {
+		utils.SendErrorResponse(w, "Database not configured. Check DB_* env vars.", http.StatusInternalServerError)
+	}
+	return d
+}
 
 func getDB() *sql.DB {
 	dbOnce.Do(func() {
@@ -45,32 +54,64 @@ func getRouter() *mux.Router {
 		// Public routes
 		api := router.PathPrefix("/api").Subrouter()
 		api.HandleFunc("/auth/send-otp", func(w http.ResponseWriter, r *http.Request) {
-			(&handlers.AuthHandler{DB: getDB()}).SendOTP(w, r)
+			d := dbOrError(w)
+			if d == nil {
+				return
+			}
+			(&handlers.AuthHandler{DB: d}).SendOTP(w, r)
 		}).Methods("POST")
 		api.HandleFunc("/auth/verify-otp", func(w http.ResponseWriter, r *http.Request) {
-			(&handlers.AuthHandler{DB: getDB()}).VerifyOTP(w, r)
+			d := dbOrError(w)
+			if d == nil {
+				return
+			}
+			(&handlers.AuthHandler{DB: d}).VerifyOTP(w, r)
 		}).Methods("POST")
 
 		// Protected routes
 		protected := api.PathPrefix("").Subrouter()
 		protected.Use(middleware.JWTAuthMiddleware)
 		protected.HandleFunc("/user/personal-details", func(w http.ResponseWriter, r *http.Request) {
-			(&handlers.UserHandler{DB: getDB()}).PersonalDetails(w, r)
+			d := dbOrError(w)
+			if d == nil {
+				return
+			}
+			(&handlers.UserHandler{DB: d}).PersonalDetails(w, r)
 		}).Methods("POST")
 		protected.HandleFunc("/user/business-details", func(w http.ResponseWriter, r *http.Request) {
-			(&handlers.UserHandler{DB: getDB()}).BusinessDetails(w, r)
+			d := dbOrError(w)
+			if d == nil {
+				return
+			}
+			(&handlers.UserHandler{DB: d}).BusinessDetails(w, r)
 		}).Methods("POST")
 		protected.HandleFunc("/user/trade-license", func(w http.ResponseWriter, r *http.Request) {
-			(&handlers.UserHandler{DB: getDB()}).TradeLicense(w, r)
+			d := dbOrError(w)
+			if d == nil {
+				return
+			}
+			(&handlers.UserHandler{DB: d}).TradeLicense(w, r)
 		}).Methods("POST")
 		protected.HandleFunc("/user/full-registration", func(w http.ResponseWriter, r *http.Request) {
-			(&handlers.UserHandler{DB: getDB()}).FullRegistration(w, r)
+			d := dbOrError(w)
+			if d == nil {
+				return
+			}
+			(&handlers.UserHandler{DB: d}).FullRegistration(w, r)
 		}).Methods("POST")
 		protected.HandleFunc("/user/submit", func(w http.ResponseWriter, r *http.Request) {
-			(&handlers.UserHandler{DB: getDB()}).Submit(w, r)
+			d := dbOrError(w)
+			if d == nil {
+				return
+			}
+			(&handlers.UserHandler{DB: d}).Submit(w, r)
 		}).Methods("POST")
 		protected.HandleFunc("/user/status", func(w http.ResponseWriter, r *http.Request) {
-			(&handlers.UserHandler{DB: getDB()}).Status(w, r)
+			d := dbOrError(w)
+			if d == nil {
+				return
+			}
+			(&handlers.UserHandler{DB: d}).Status(w, r)
 		}).Methods("GET")
 
 		// CORS middleware
@@ -99,4 +140,3 @@ func getRouter() *mux.Router {
 func Handler(w http.ResponseWriter, r *http.Request) {
 	getRouter().ServeHTTP(w, r)
 }
-
