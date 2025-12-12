@@ -69,7 +69,7 @@ The connection code automatically detects and uses the available format.
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone <https://github.com/muntasir-ifaz574/SMEfin_backend.git>
 cd sme_fin_backend
 ```
 
