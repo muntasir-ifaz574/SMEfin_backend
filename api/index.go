@@ -1,10 +1,9 @@
-package main
+package handler
 
 import (
 	"database/sql"
 	"log"
 	"net/http"
-	"os"
 	"sync"
 
 	"sme_fin_backend/database"
@@ -12,7 +11,6 @@ import (
 	"sme_fin_backend/middleware"
 
 	"github.com/gorilla/mux"
-	"github.com/joho/godotenv"
 )
 
 var (
@@ -21,13 +19,6 @@ var (
 	dbOnce     sync.Once
 	routerOnce sync.Once
 )
-
-func init() {
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using environment variables")
-	}
-}
 
 func getDB() *sql.DB {
 	dbOnce.Do(func() {
@@ -109,24 +100,3 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	getRouter().ServeHTTP(w, r)
 }
 
-// main function for local development
-func main() {
-	// Connect to database for local development
-	db := getDB()
-	if db == nil {
-		log.Fatal("Failed to connect to database")
-	}
-	defer db.Close()
-
-	// Initialize router
-	r := getRouter()
-
-	// Start server
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	log.Printf("Server starting on port %s", port)
-	log.Fatal(http.ListenAndServe(":"+port, r))
-}
