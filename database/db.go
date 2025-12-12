@@ -4,33 +4,67 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 
 	_ "github.com/lib/pq"
 )
 
+// getEnv gets environment variable with fallback options
+func getEnv(keys ...string) string {
+	for _, key := range keys {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func Connect() (*sql.DB, error) {
 	var connStr string
 
-	// Prefer a single DATABASE_URL if provided (works well with Supabase / Vercel)
-	databaseURL := os.Getenv("DATABASE_URL")
+	// Try multiple possible environment variable names for database URL
+	// Common names: DATABASE_URL, POSTGRES_URL, POSTGRES_PRISMA_URL, POSTGRES_URL_NON_POOLING
+	databaseURL := getEnv("DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL", "POSTGRES_URL_NON_POOLING")
+
 	if databaseURL != "" {
+		// If DATABASE_URL doesn't have sslmode, add it for Supabase
+		if !strings.Contains(databaseURL, "sslmode=") {
+			if strings.Contains(databaseURL, "?") {
+				databaseURL += "&sslmode=require"
+			} else {
+				databaseURL += "?sslmode=require"
+			}
+		}
 		connStr = databaseURL
 	} else {
-		// Build connection string from individual env vars
-		host := os.Getenv("DB_HOST")
-		port := os.Getenv("DB_PORT")
-		user := os.Getenv("DB_USER")
-		password := os.Getenv("DB_PASSWORD")
-		dbname := os.Getenv("DB_NAME")
-		sslmode := os.Getenv("DB_SSLMODE")
+		// Try multiple naming conventions for individual env vars
+		host := getEnv("DB_HOST", "POSTGRES_HOST", "PGHOST")
+		port := getEnv("DB_PORT", "POSTGRES_PORT", "PGPORT")
+		user := getEnv("DB_USER", "POSTGRES_USER", "PGUSER", "POSTGRES_USERNAME")
+		password := getEnv("DB_PASSWORD", "POSTGRES_PASSWORD", "PGPASSWORD")
+		dbname := getEnv("DB_NAME", "POSTGRES_DATABASE", "POSTGRES_DB", "PGDATABASE")
+		sslmode := getEnv("DB_SSLMODE", "POSTGRES_SSLMODE", "PGSSLMODE")
 
 		if sslmode == "" {
 			sslmode = "require"
 		}
 
+		// Default port if not provided
+		if port == "" {
+			port = "5432"
+		}
+
 		// Validate required env vars
-		if host == "" || port == "" || user == "" || password == "" || dbname == "" {
-			return nil, fmt.Errorf("missing required database env vars (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME) or DATABASE_URL")
+		if host == "" || user == "" || password == "" || dbname == "" {
+			// Log available env vars for debugging (without sensitive data)
+			availableVars := []string{}
+			for _, key := range []string{"DATABASE_URL", "POSTGRES_URL", "DB_HOST", "POSTGRES_HOST", "DB_USER", "POSTGRES_USER", "DB_NAME", "POSTGRES_DATABASE"} {
+				if os.Getenv(key) != "" {
+					availableVars = append(availableVars, key)
+				}
+			}
+
+			return nil, fmt.Errorf("missing required database env vars. Need either DATABASE_URL/POSTGRES_URL, or (DB_HOST/POSTGRES_HOST, DB_USER/POSTGRES_USER, DB_PASSWORD/POSTGRES_PASSWORD, DB_NAME/POSTGRES_DATABASE). Found env vars: %v", availableVars)
 		}
 
 		connStr = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
