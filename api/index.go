@@ -2,6 +2,7 @@ package handler
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -21,23 +22,35 @@ var (
 	routerOnce sync.Once
 )
 
-func dbOrError(w http.ResponseWriter) *sql.DB {
-	d := getDB()
-	if d == nil {
-		utils.SendErrorResponse(w, "Database not configured. Check DB_* env vars.", http.StatusInternalServerError)
-	}
-	return d
-}
-
-func getDB() *sql.DB {
+func getDB() (*sql.DB, error) {
+	var err error
 	dbOnce.Do(func() {
-		var err error
 		db, err = database.Connect()
 		if err != nil {
 			log.Printf("Failed to connect to database: %v", err)
 		}
 	})
-	return db
+	if err != nil {
+		return nil, err
+	}
+	if db == nil {
+		return nil, fmt.Errorf("database connection is nil")
+	}
+	return db, nil
+}
+
+func dbOrError(w http.ResponseWriter) *sql.DB {
+	d, err := getDB()
+	if err != nil {
+		log.Printf("Database error: %v", err)
+		utils.SendErrorResponse(w, fmt.Sprintf("Database connection error: %v", err), http.StatusInternalServerError)
+		return nil
+	}
+	if d == nil {
+		utils.SendErrorResponse(w, "Database connection is not available", http.StatusInternalServerError)
+		return nil
+	}
+	return d
 }
 
 func getRouter() *mux.Router {
