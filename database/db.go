@@ -9,6 +9,26 @@ import (
 )
 
 func Connect() (*sql.DB, error) {
+	// Prefer a single DATABASE_URL if provided (works well with Supabase / Vercel)
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL != "" {
+		db, err := sql.Open("postgres", databaseURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open database (DATABASE_URL): %w", err)
+		}
+
+		// Connection pool for serverless
+		db.SetMaxOpenConns(10)
+		db.SetMaxIdleConns(5)
+		db.SetConnMaxLifetime(0)
+
+		if err := db.Ping(); err != nil {
+			return nil, fmt.Errorf("failed to ping database (DATABASE_URL): %w", err)
+		}
+
+		return db, nil
+	}
+
 	host := os.Getenv("DB_HOST")
 	port := os.Getenv("DB_PORT")
 	user := os.Getenv("DB_USER")
