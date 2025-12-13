@@ -210,6 +210,21 @@ func (h *UserHandler) FullRegistration(w http.ResponseWriter, r *http.Request) {
 			file, fileHeader, err := r.FormFile("trade[file]")
 			if err == nil && file != nil {
 				defer file.Close()
+				
+				// Validate file type (PDF, JPG, PNG)
+				allowedTypes := []string{"pdf", "jpg", "jpeg", "png"}
+				if !utils.ValidateFileType(fileHeader.Filename, allowedTypes) {
+					utils.SendErrorResponse(w, "Invalid file type. Only PDF, JPG, and PNG files are allowed", http.StatusBadRequest)
+					return
+				}
+				
+				// Validate file size (max 10MB)
+				maxSizeMB := 10
+				if !utils.ValidateFileSize(fileHeader.Size, maxSizeMB) {
+					utils.SendErrorResponse(w, fmt.Sprintf("File size exceeds %dMB limit", maxSizeMB), http.StatusBadRequest)
+					return
+				}
+				
 				req.Trade.Filename = fileHeader.Filename
 
 				// Upload to Supabase storage

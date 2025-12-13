@@ -67,6 +67,17 @@ type RegistrationSummary struct {
 	TradeLicense TradeLicense    `json:"trade_license"`
 }
 
+type FinancingRequest struct {
+	ID              uuid.UUID `json:"id"`
+	UserID          uuid.UUID `json:"user_id"`
+	Amount          float64   `json:"amount"`
+	Purpose         string    `json:"purpose"`
+	RepaymentPeriod int       `json:"repayment_period"` // in months
+	Status          string    `json:"status"`           // "pending", "approved", "rejected", "disbursed"
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
 // Database methods
 func (u *User) Create(db *sql.DB) error {
 	u.ID = uuid.New()
@@ -333,4 +344,67 @@ func GetRegistrationSummary(db *sql.DB, userID uuid.UUID) (*RegistrationSummary,
 		BusinessInfo: *bd,
 		TradeLicense: *tl,
 	}, nil
+}
+
+func (fr *FinancingRequest) Create(db *sql.DB) error {
+	fr.ID = uuid.New()
+	fr.CreatedAt = time.Now()
+	fr.UpdatedAt = time.Now()
+	if fr.Status == "" {
+		fr.Status = "pending"
+	}
+
+	query := `INSERT INTO financing_requests (id, user_id, amount, purpose, repayment_period, status, created_at, updated_at) 
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+	_, err := db.Exec(query, fr.ID, fr.UserID, fr.Amount, fr.Purpose, fr.RepaymentPeriod, fr.Status, fr.CreatedAt, fr.UpdatedAt)
+	return err
+}
+
+func GetFinancingRequestsByUserID(db *sql.DB, userID uuid.UUID) ([]FinancingRequest, error) {
+	query := `SELECT id, user_id, amount, purpose, repayment_period, status, created_at, updated_at 
+	          FROM financing_requests WHERE user_id = $1 ORDER BY created_at DESC`
+
+	rows, err := db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var requests []FinancingRequest
+	for rows.Next() {
+		var fr FinancingRequest
+		err := rows.Scan(&fr.ID, &fr.UserID, &fr.Amount, &fr.Purpose, &fr.RepaymentPeriod, &fr.Status, &fr.CreatedAt, &fr.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		requests = append(requests, fr)
+	}
+
+	return requests, rows.Err()
+}
+
+func GetFinancingRequestByID(db *sql.DB, id uuid.UUID) (*FinancingRequest, error) {
+	fr := &FinancingRequest{}
+	query := `SELECT id, user_id, amount, purpose, repayment_period, status, created_at, updated_at 
+	          FROM financing_requests WHERE id = $1`
+	err := db.QueryRow(query, id).Scan(
+		&fr.ID, &fr.UserID, &fr.Amount, &fr.Purpose, &fr.RepaymentPeriod, &fr.Status, &fr.CreatedAt, &fr.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return fr, err
+}
+
+func GetLatestFinancingRequestByUserID(db *sql.DB, userID uuid.UUID) (*FinancingRequest, error) {
+	fr := &FinancingRequest{}
+	query := `SELECT id, user_id, amount, purpose, repayment_period, status, created_at, updated_at 
+	          FROM financing_requests WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`
+	err := db.QueryRow(query, userID).Scan(
+		&fr.ID, &fr.UserID, &fr.Amount, &fr.Purpose, &fr.RepaymentPeriod, &fr.Status, &fr.CreatedAt, &fr.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return fr, err
 }

@@ -149,6 +149,34 @@ func getRouter() *mux.Router {
 			}
 			(&handlers.UserHandler{DB: d}).GetUserData(w, r)
 		}).Methods("GET")
+		protected.HandleFunc("/financing/request", func(w http.ResponseWriter, r *http.Request) {
+			d := dbOrError(w)
+			if d == nil {
+				return
+			}
+			(&handlers.FinancingHandler{DB: d}).RequestFinancing(w, r)
+		}).Methods("POST")
+		protected.HandleFunc("/financing/requests", func(w http.ResponseWriter, r *http.Request) {
+			d := dbOrError(w)
+			if d == nil {
+				return
+			}
+			(&handlers.FinancingHandler{DB: d}).GetFinancingRequests(w, r)
+		}).Methods("GET")
+		protected.HandleFunc("/financing/request-detail", func(w http.ResponseWriter, r *http.Request) {
+			d := dbOrError(w)
+			if d == nil {
+				return
+			}
+			(&handlers.FinancingHandler{DB: d}).GetFinancingRequest(w, r)
+		}).Methods("GET")
+		protected.HandleFunc("/financing/latest", func(w http.ResponseWriter, r *http.Request) {
+			d := dbOrError(w)
+			if d == nil {
+				return
+			}
+			(&handlers.FinancingHandler{DB: d}).GetLatestFinancingRequest(w, r)
+		}).Methods("GET")
 
 		// CORS middleware
 		corsHandler := func(next http.Handler) http.Handler {

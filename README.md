@@ -10,6 +10,7 @@ A Go backend API for the SMEfin application that allows SMEs to register with th
   - Business Details
   - Trade License Upload
 - **Account Status**: Track new/old account status based on completion
+- **Financing Requests**: Submit and manage financing requests (requires completed registration)
 - **Database**: PostgreSQL (Supabase) integration
 - **Error Handling**: Comprehensive error responses with status codes
 - **Form Data Support**: All endpoints accept `multipart/form-data` (with JSON fallback for backward compatibility)
@@ -55,7 +56,9 @@ SUPABASE_BUCKET_NAME=vercel_bucket
 ### Using Supabase
 
 1. Create a new Supabase project
-2. Run the SQL migration file located at `supabase/migrations/001_initial_schema.sql` in your Supabase SQL editor
+2. Run the SQL migration files in order:
+   - `supabase/migrations/001_initial_schema.sql` (users, registration tables)
+   - `supabase/migrations/002_financing_requests.sql` (financing requests table)
 3. Update your `.env` file with the Supabase connection details
 
 **Note:** The database connection supports multiple environment variable formats:
@@ -237,6 +240,132 @@ Alternative flat format (also supported):
 
 **Note:** This endpoint saves personal details, business details, and trade license in a single API call. If a file is uploaded via `trade[file]`, it will be automatically uploaded to Supabase storage.
 
+#### Request Financing
+```
+POST /api/financing/request
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+Form Data:
+- amount: 50000 (required, positive number)
+- purpose: Business expansion and inventory purchase (required)
+- repayment_period: 12 (required, number of months)
+
+Response:
+{
+    "success": true,
+    "message": "Financing request submitted successfully",
+    "status_code": 201,
+    "data": {
+        "id": "uuid",
+        "user_id": "uuid",
+        "amount": 50000,
+        "purpose": "Business expansion and inventory purchase",
+        "repayment_period": 12,
+        "status": "pending",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z"
+    }
+}
+```
+
+**Note:** 
+- User must have completed registration (status: "old") before requesting financing.
+- Users can submit multiple financing requests. Each request is stored separately.
+
+#### Get All Financing Requests
+```
+GET /api/financing/requests
+Authorization: Bearer <token>
+
+Response:
+{
+    "success": true,
+    "message": "Financing requests retrieved successfully",
+    "status_code": 200,
+    "data": [
+        {
+            "id": "uuid",
+            "user_id": "uuid",
+            "amount": 50000,
+            "purpose": "Business expansion",
+            "repayment_period": 12,
+            "status": "pending",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        },
+        {
+            "id": "uuid-2",
+            "user_id": "uuid",
+            "amount": 30000,
+            "purpose": "Equipment purchase",
+            "repayment_period": 6,
+            "status": "approved",
+            "created_at": "2024-01-15T00:00:00Z",
+            "updated_at": "2024-01-16T00:00:00Z"
+        }
+    ]
+}
+```
+
+**Note:** Returns all financing requests for the authenticated user, ordered by creation date (newest first). Returns an empty array `[]` if no requests exist.
+
+#### Get Financing Request Detail
+```
+GET /api/financing/request-detail?id=<request_id>
+Authorization: Bearer <token>
+
+Response:
+{
+    "success": true,
+    "message": "Financing request retrieved successfully",
+    "status_code": 200,
+    "data": {
+        "id": "uuid",
+        "user_id": "uuid",
+        "amount": 50000,
+        "purpose": "Business expansion",
+        "repayment_period": 12,
+        "status": "pending",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z"
+    }
+}
+```
+
+#### Get Latest Financing Request
+```
+GET /api/financing/latest
+Authorization: Bearer <token>
+
+Response (if request exists):
+{
+    "success": true,
+    "message": "Latest financing request retrieved successfully",
+    "status_code": 200,
+    "data": {
+        "id": "uuid",
+        "user_id": "uuid",
+        "amount": 50000,
+        "purpose": "Business expansion",
+        "repayment_period": 12,
+        "status": "pending",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z"
+    }
+}
+
+Response (if no request exists):
+{
+    "success": true,
+    "message": "No financing request found",
+    "status_code": 200,
+    "data": null
+}
+```
+
+**Note:** Returns the most recent financing request for the user, or `null` if no requests exist.
+
 ## Response Format
 
 All API responses follow this format:
@@ -268,13 +397,26 @@ The account status is determined as follows:
 
 ## API Summary
 
-The API provides three main endpoints for user management:
+The API provides the following endpoints:
 
+### User Management:
 1. **GET /api/user/status** - Get account completion status
 2. **GET /api/user/data** - Get all user registration data (personal, business, trade license)
 3. **POST /api/user/full-registration** - Save all registration data in one call
 
+### Financing:
+1. **POST /api/financing/request** - Submit a financing request (requires completed registration)
+2. **GET /api/financing/requests** - Get all financing requests for the user
+3. **GET /api/financing/request-detail?id=<id>** - Get details of a specific financing request
+4. **GET /api/financing/latest** - Get the latest financing request (returns null if none exists)
+
 All user data is saved through the single `full-registration` endpoint, which handles personal details, business details, and trade license upload in one request.
+
+### Financing Request Status
+- **"pending"**: Request submitted, awaiting review
+- **"approved"**: Request approved by admin
+- **"rejected"**: Request rejected
+- **"disbursed"**: Funds have been disbursed
 
 ## Postman Collection
 
@@ -343,7 +485,8 @@ sme_fin_backend/
 │   └── db.go              # Database connection
 ├── handlers/
 │   ├── auth.go            # Authentication handlers
-│   └── user.go            # User handlers
+│   ├── user.go            # User handlers
+│   └── financing.go       # Financing request handlers
 ├── middleware/
 │   └── auth.go            # JWT authentication middleware
 ├── models/
@@ -355,7 +498,8 @@ sme_fin_backend/
 │   └── formdata.go        # Form data parsing utilities
 ├── supabase/
 │   └── migrations/
-│       └── 001_initial_schema.sql
+│       ├── 001_initial_schema.sql
+│       └── 002_financing_requests.sql
 ├── main.go                # Local development entry point
 ├── go.mod                 # Go dependencies
 ├── vercel.json            # Vercel deployment configuration
@@ -366,8 +510,10 @@ sme_fin_backend/
 ## Error Codes
 
 - `200`: Success
+- `201`: Created (resource created successfully)
 - `400`: Bad Request (validation errors, missing fields)
 - `401`: Unauthorized (invalid/missing token, invalid OTP)
+- `403`: Forbidden (unauthorized to access resource)
 - `404`: Not Found (user/resource not found)
 - `500`: Internal Server Error (database errors, server errors)
 

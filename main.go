@@ -72,6 +72,18 @@ func getRouter() *mux.Router {
 		protected.HandleFunc("/user/data", func(w http.ResponseWriter, r *http.Request) {
 			(&handlers.UserHandler{DB: getDB()}).GetUserData(w, r)
 		}).Methods("GET")
+		protected.HandleFunc("/financing/request", func(w http.ResponseWriter, r *http.Request) {
+			(&handlers.FinancingHandler{DB: getDB()}).RequestFinancing(w, r)
+		}).Methods("POST")
+		protected.HandleFunc("/financing/requests", func(w http.ResponseWriter, r *http.Request) {
+			(&handlers.FinancingHandler{DB: getDB()}).GetFinancingRequests(w, r)
+		}).Methods("GET")
+		protected.HandleFunc("/financing/request-detail", func(w http.ResponseWriter, r *http.Request) {
+			(&handlers.FinancingHandler{DB: getDB()}).GetFinancingRequest(w, r)
+		}).Methods("GET")
+		protected.HandleFunc("/financing/latest", func(w http.ResponseWriter, r *http.Request) {
+			(&handlers.FinancingHandler{DB: getDB()}).GetLatestFinancingRequest(w, r)
+		}).Methods("GET")
 
 		// CORS middleware
 		corsHandler := func(next http.Handler) http.Handler {

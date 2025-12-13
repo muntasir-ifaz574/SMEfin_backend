@@ -188,6 +188,105 @@
 					}
 				}
 			]
+		},
+		{
+			"name": "Financing",
+			"item": [
+				{
+					"name": "Request Financing",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "amount",
+									"value": "50000",
+									"type": "text"
+								},
+								{
+									"key": "purpose",
+									"value": "Business expansion and inventory purchase",
+									"type": "text"
+								},
+								{
+									"key": "repayment_period",
+									"value": "12",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/financing/request",
+							"host": ["{{base_url}}"],
+							"path": ["api", "financing", "request"]
+						}
+					}
+				},
+				{
+					"name": "Get All Financing Requests",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/financing/requests",
+							"host": ["{{base_url}}"],
+							"path": ["api", "financing", "requests"]
+						}
+					}
+				},
+				{
+					"name": "Get Financing Request Detail",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/financing/request-detail?id={{request_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "financing", "request-detail"],
+							"query": [
+								{
+									"key": "id",
+									"value": "{{request_id}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Latest Financing Request",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/financing/latest",
+							"host": ["{{base_url}}"],
+							"path": ["api", "financing", "latest"]
+						}
+					}
+				}
+			]
 		}
 	],
 	"variable": [
@@ -203,6 +302,11 @@
 		},
 		{
 			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "request_id",
 			"value": "",
 			"type": "string"
 		}
